@@ -3,9 +3,7 @@ const cors = require("cors");
 const Joi = require("joi");
 const multer = require("multer");
 const path = require("path");
-
 const app = express();
-
 app.use(express.static("public"));
 app.use("/images", express.static("public/images"));
 app.use(express.json());
@@ -134,30 +132,6 @@ app.get("/api/faqs", (req, res) => {
   res.send(faqData);
 });
 
-app.post("/api/faqs", upload.single("img"), (req, res) => {
-  const result = validateFaq(req.body);
-  if (result.error) {
-    res.status(400).send(result.error.details[0].message);
-    return;
-  }
-
-  const faq = {
-    _id: faqData.length + 1,
-    question: req.body.question,
-    answer: req.body.answer,
-    related_services: req.body.related_services ? req.body.related_services.split(",") : [],
-    category: req.body.category,
-    updated_date: new Date().toISOString().split("T")[0],
-  };
-
-  if (req.file) {
-    faq.img_name = "images/" + req.file.filename;
-  }
-
-  faqData.push(faq);
-  res.status(200).send(faq);
-});
-
 app.put("/api/faqs/:id", upload.single("img"), (req, res) => {
   const faq = faqData.find((f) => f._id === parseInt(req.params.id));
   if (!faq) {
@@ -193,16 +167,56 @@ app.delete("/api/faqs/:id", (req, res) => {
   res.send(faq);
 });
 
+app.post("/api/faqs", upload.single("img"), (req, res) => {
+  console.log("Request Body:", req.body);
+  console.log("Uploaded File:", req.file);
+  const data = {
+    question: req.body.question, 
+    answer: req.body.answer, 
+    related_services: req.body.related_services
+    ? Array.isArray(req.body.related_services)
+      ? req.body.related_services // Already an array
+      : [req.body.related_services] // Convert single string to array
+    : [], 
+    category: req.body.category,
+    updated_date: req.body.updated_date || new Date().toISOString().split("T")[0],
+  };
+
+  const result = validateFaq(data);
+
+  if (result.error) {
+    return res.status(400).send({ message: result.error.details[0].message });
+  }
+
+  const faq = {
+    _id: faqData.length + 1,
+    ...data,
+  };
+
+  if (req.file) {
+    faq.img_name = "images/" + req.file.filename;
+  } else {
+    faq.img_name = null;
+  }
+
+  faqData.push(faq);
+  res.status(200).send(faq);
+});
+
 const validateFaq = (faq) => {
   const schema = Joi.object({
     question: Joi.string().min(5).required(),
     answer: Joi.string().min(10).required(),
-    related_services: Joi.string().optional(),
+    related_services: Joi.alternatives()
+      .try(Joi.array().items(Joi.string()), Joi.string()) // Accept array or single string
+      .optional(),
     category: Joi.string().min(3).required(),
+    updated_date: Joi.date().optional(),
   });
 
   return schema.validate(faq);
 };
+
 
 const PORT = process.env.PORT || 3002;
 app.listen(PORT, () => {
