@@ -205,12 +205,12 @@ app.post("/api/faqs", upload.single("img"), (req, res) => {
 
 const validateFaq = (faq) => {
   const schema = Joi.object({
-    question: Joi.string().min(5).required(),
-    answer: Joi.string().min(10).required(),
+    question: Joi.string().min(1).required(),
+    answer: Joi.string().min(1).required(),
     related_services: Joi.alternatives()
       .try(Joi.array().items(Joi.string()), Joi.string()) // Accept array or single string
       .optional(),
-    category: Joi.string().min(3).required(),
+    category: Joi.string().min(1).required(),
     updated_date: Joi.date().optional(),
   });
 
